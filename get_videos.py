@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 
 #sys.path.append('/usr/local/lib/python2.7/site-packages/')
 
-
 # In[15]:
 
 sns.set_context('paper')
@@ -35,11 +34,11 @@ logging.basicConfig(filename='./log.log',level=logging.WARNING)
 
 # Check quota [here](https://console.developers.google.com/project/childmarriage-1019/apiui/apiview/youtube/quotas)
 
-# In[17]:
+# In[80]:
 
 taxonomyWords=['child marriage','child bride','underage bride','teen bride','forced marriage','early marriage']
-#taxonomyWords.extend([u'बाल विवाह',u'बालिका वधु',u'नाबालिक विवाह',u'नाबालिक वधु',u'किशोर वधु',u'किशोर बीवी',u'जबरन शादी',u'जबरन विवाह'])
-#taxonomyWords=map(lambda x:'"'+x+'"',taxonomyWords)
+taxonomyWords.extend([u'बाल विवाह',u'बालिका वधु',u'नाबालिक विवाह',u'नाबालिक वधु',u'किशोर वधु',u'किशोर बीवी',u'जबरन शादी',u'जबरन विवाह'])
+taxonomyWords=map(lambda x:'"'+x+'"',taxonomyWords)
 taxonomyWords=map(lambda x:'%22'+x+'%22',taxonomyWords)
 #FULLQUERY='|'.join(taxonomyWords)
 FULLQUERY='%7C'.join(taxonomyWords)
@@ -162,7 +161,6 @@ def getRepliesFromComment(commentId,commentTime,commentText,nextReplyPageToken):
         if len(newNextToken)>0:
             logging.warning('!!!!More than 100 replies....')
             isMore=True
-            print commentId,commentTime,commentText,newNextToken
     
     return returnData,isMore,newNextToken
 # commentData['items'],isMoreComments,nextToken
@@ -522,9 +520,9 @@ commentDf.index=pd.to_datetime(commentDf.index)
 replyDf.index=pd.to_datetime(replyDf.index)
 
 
-# In[78]:
+# In[79]:
 
-commentDf.videoId.value_counts()
+replyDf.parentVideo.value_counts()
 
 
 # ###Write Out

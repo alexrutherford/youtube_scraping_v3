@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[14]:
+# In[1]:
 
 import requests
 import collections
@@ -13,11 +13,12 @@ import pandas as pd
 import numpy as np
 from utils import *
 import langid
-import sys
+import sys,time
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 #sys.path.append('/usr/local/lib/python2.7/site-packages/')
+
 
 # In[15]:
 
@@ -34,12 +35,12 @@ logging.basicConfig(filename='./log.log',level=logging.WARNING)
 
 # Check quota [here](https://console.developers.google.com/project/childmarriage-1019/apiui/apiview/youtube/quotas)
 
-# In[80]:
+# In[85]:
 
 taxonomyWords=['child marriage','child bride','underage bride','teen bride','forced marriage','early marriage']
 taxonomyWords.extend([u'बाल विवाह',u'बालिका वधु',u'नाबालिक विवाह',u'नाबालिक वधु',u'किशोर वधु',u'किशोर बीवी',u'जबरन शादी',u'जबरन विवाह'])
 taxonomyWords=map(lambda x:'"'+x+'"',taxonomyWords)
-taxonomyWords=map(lambda x:'%22'+x+'%22',taxonomyWords)
+#taxonomyWords=map(lambda x:'%22'+x+'%22',taxonomyWords)
 #FULLQUERY='|'.join(taxonomyWords)
 FULLQUERY='%7C'.join(taxonomyWords)
 
@@ -229,12 +230,23 @@ def getCommentsFromVideo(vid,nextCommentPageToken):
 #        logging.warning(commentData)
         return [],False,None
     
-    if not res.status_code==200:
+    nAttempts=0
+    
+    while not res.status_code==200:
         logging.warning('Error %d' % res.status_code)
 #        logging.warning('%s' %commentData)
         print commentData
         print requestString
         print vid,nextCommentPageToken,KEY
+        loggin.warning('Sleeping (attempt #%d)' % nAttempts)
+        time.sleep(60)
+        res=requests.get(requestString)
+        commentData=res.json()
+        nAttempts+=1
+        if nttempts==10:
+            logging.warning('Giving up')
+            return [],False,None
+        
     isMoreComments=False
     
     nextToken=commentData.get('nextPageToken')
@@ -254,12 +266,12 @@ def getCommentsFromVideo(vid,nextCommentPageToken):
     return commentData['items'],isMoreComments,nextToken
 
 
-# In[76]:
+# In[111]:
 
-nDayDiff=60
+nDayDiff=365
 # Look back n days from start date
 
-diff=3
+diff=2
 # Start date is yesterday
 
 now=datetime.datetime.now()
@@ -298,6 +310,8 @@ vViewCountList=[]
 vFavouriteCountList=[]
 vDislikeCountList=[]
 vLikeCountList=[]
+vDescriptionLangList=[]
+vTitleLangList=[]
 # Initialise video lists
 
 cIdList=[]
@@ -312,6 +326,7 @@ commentTextList=[]
 commentUserIdList=[]
 commentLikesList=[]
 commentTimeList=[]
+commentTextLangList=[]
 # Initialise comment lists
 
 replyTextList=[]
@@ -320,6 +335,7 @@ replyTimeList=[]
 replyAuthorIdList=[]
 replyLikeCountList=[]
 replyVideoIdList=[]
+replyLangList=[]
 # Initialise reply lists
 
 ##############
@@ -379,12 +395,17 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     if False:print 'Video Description:',vDescription
                     vDescriptionList.append(vDescription)
 
+                    vTitleLang=langid.classify(vTitle)[0]
+                    vDescriptionLang=langid.classify(vDescription)[0]
+
                     logging.info('Video Stats %s' % ' '.join([k+':'+v for k,v in zip(['comments','views','favs','dislike','like'],[vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount]) if v]))
                     vCommentCountList.append(vCommentCount)
                     vViewCountList.append(vViewCount)
                     vFavouriteCountList.append(vFavouriteCount)
                     vDislikeCountList.append(vDislikeCount)
                     vLikeCountList.append(vLikeCount)
+                    vDescriptionLangList.append(vDescriptionLang)
+                    vTitleLangList.append(vTitleLang)
                     
                     isMoreComments=True
                     nextCommentPageToken=None
@@ -409,6 +430,8 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
 
                             commentText=thread['snippet']['topLevelComment']['snippet']['textDisplay']
                             commentTextList.append(commentText)
+                            commentTextLang=langid.classify(commentText)[0]
+                            commentTextLangList.append(commentTextLang)
 
                             commentTime=thread['snippet']['topLevelComment']['snippet']['publishedAt']
                             commentTimeList.append(commentTime)
@@ -433,6 +456,8 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                                         replyVideoIdList.append(videoId)
                                         replyText=reply['snippet']['textDisplay']
                                         replyTextList.append(replyText)
+                                        replyTextLang=langid.classify(replyText)[0]
+                                        replyLangList.append(replyText)
 
                                         replyCommentId=reply['snippet']['parentId']
                                         replyCommentIdList.append(replyCommentId)
@@ -478,13 +503,16 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     vDislikeCountList.append(None)
                     vLikeCountList.append(None)
                     
+                    vTitleLangList.append(None)
+                    vDescriptionList.append(None)
+                    
                     cIdList.append(None)
                     cCountryList.append(None)
                     cDescriptionList.append(None)
                     cTitleList.append(None)
                 logging.info('\n')
 
-                assert len(vIdList)==len(vTitleList)==len(vTagList)==len(vLangList)==len(vDescriptionList)==len(vViewCountList)                ==len(vFavouriteCountList)==len(vDislikeCountList)==len(vLikeCountList)==len(vTimeList)                ==len(cIdList)==len(cCountryList)==len(cDescriptionList)==len(cTitleList)==len(vTimeList)                ,'Video data mismatched'
+                assert len(vIdList)==len(vTitleList)==len(vTagList)==len(vLangList)==len(vDescriptionList)==len(vViewCountList)                ==len(vFavouriteCountList)==len(vDislikeCountList)==len(vLikeCountList)==len(vTimeList)==len(vTitleLangList)                ==len(cIdList)==len(cCountryList)==len(cDescriptionList)==len(cTitleList)==len(vTimeList)==len(vDescriptionLangList)                ,'Video data mismatched'
 
                 assert len(commentIdList)==len(commentLikesList)==len(commentTextList)==len(commentTimeList)                ==len(commentUserIdList)==len(commentVideoIdList)                ,'Comment data mismatched'
 
@@ -493,12 +521,18 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
         logging.warning('Stats: %d videos %d comments %d replies' %(len(vIdList),len(commentIdList),len(replyCommentIdList)))
     
     logging.warning('End of pagination\n')
+logging.warning('Finished looping over dates\n')
     
-videoDf=pd.DataFrame(data={'id':vIdList,'title':vTitleList,'tags':vTagList,'lang':vLangList,'description':vDescriptionList,                'views':vViewCountList,'favourites':vFavouriteCountList,'dislikes':vDislikeCountList,                'likes':vLikeCountList,'channelId':cIdList,'channelCountry':cCountryList,                'channelDescription':cDescriptionList,'channelTitle':cTitleList},index=vTimeList)       
+videoDf=pd.DataFrame(data={'id':vIdList,'title':vTitleList,'tags':vTagList,'lang':vLangList,'description':vDescriptionList,                'descriptionLang':vDescriptionLangList,'views':vViewCountList,'favourites':vFavouriteCountList,'dislikes':vDislikeCountList,                'titleLang':vTitleLangList,'likes':vLikeCountList,'channelId':cIdList,'channelCountry':cCountryList,                'channelDescription':cDescriptionList,'channelTitle':cTitleList},index=vTimeList)       
       
-commentDf=pd.DataFrame(data={'text':commentTextList,'videoId':commentVideoIdList,'id':commentIdList,                             'likes':commentLikesList,'user':commentUserIdList},index=commentTimeList)
+commentDf=pd.DataFrame(data={'text':commentTextList,'videoId':commentVideoIdList,'id':commentIdList,                             'likes':commentLikesList,'user':commentUserIdList,'lang':commentTextLangList},index=commentTimeList)
 
-replyDf=pd.DataFrame(data={'text':replyTextList,'likes':replyLikeCountList,'author':replyAuthorIdList,                           'parentComment':replyCommentIdList,'parentVideo':replyVideoIdList},index=replyTimeList)
+replyDf=pd.DataFrame(data={'text':replyTextList,'likes':replyLikeCountList,'author':replyAuthorIdList,'lang':replyLangList,                           'parentComment':replyCommentIdList,'parentVideo':replyVideoIdList},index=replyTimeList)
+
+
+# In[115]:
+
+replyDf.columns
 
 
 # In[ ]:
@@ -506,7 +540,7 @@ replyDf=pd.DataFrame(data={'text':replyTextList,'likes':replyLikeCountList,'auth
 trash1,trash2,trash3=getVideos(end,start,None)
 
 
-# In[209]:
+# In[116]:
 
 print replyDf.shape,videoDf.shape,commentDf.shape
 
@@ -536,19 +570,14 @@ replyDf.to_pickle('replies.dat')
 
 # ###Read In
 
-# In[3]:
+# In[112]:
 
 videoDf=pd.read_pickle('videos.dat')
 commentDf=pd.read_pickle('comments.dat')
 replyDf=pd.read_pickle('replies.dat')
 
 
-# In[4]:
-
-videoDf.columns
-
-
-# In[6]:
+# In[95]:
 
 def matchesIndia(x,term=None):
     if x:
@@ -561,17 +590,29 @@ def matchesIndia(x,term=None):
     return False
 
 
-# In[7]:
+# In[96]:
 
 sum(videoDf.tags.apply(matchesIndia).values)
 
 
-# In[22]:
+# In[97]:
 
 collections.Counter(videoDf[~pd.isnull(videoDf.channelCountry)].channelCountry.values).most_common()[0:10]
 
 
-# In[33]:
+# In[98]:
+
+vals=collections.Counter(videoDf[~pd.isnull(videoDf.channelCountry)].channelCountry.values).most_common()[0:10]
+# Throw out null
+vals.reverse()
+plt.barh([i for i in range(10)],[v[1] for v in vals],0.8)
+plt.yticks([i+0.4 for i in range(10)],[v[0]+' (%d - %d%%)' % (v[1],int((100*v[1])/sum([v[1] for v in vals]))) for v in vals])
+plt.title('YouTube Channel Geolocation (%d%% classified)' % (100*sum([v[1] for v in vals])/(videoDf.shape[0])))
+plt.tight_layout()
+plt.savefig('../charts/youtube_country_dist.png',dpi=300)
+
+
+# In[ ]:
 
 vals=collections.Counter(videoDf[~pd.isnull(videoDf.channelCountry)].channelCountry.values).most_common()[0:10]
 # Throw out null
@@ -588,7 +629,7 @@ plt.savefig('../charts/youtube_country_dist.png',dpi=300)
 videoDf[videoDf.channelCountry=='VN'].icol([3,4,10,11])
 
 
-# In[10]:
+# In[113]:
 
 #chosenCountry='ET'
 chosenCountry=None
@@ -609,7 +650,7 @@ else:
     plt.savefig('../charts/youtube_time.png',dpi=300)
 
 
-# In[12]:
+# In[100]:
 
 commentDf[commentDf.index>pd.datetime(2015,1,1)]['id'].resample('d',how='count').plot()
 plt.ylabel('Comments per Day')

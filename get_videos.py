@@ -20,12 +20,12 @@ import matplotlib.pyplot as plt
 #sys.path.append('/usr/local/lib/python2.7/site-packages/')
 
 
-# In[15]:
+# In[2]:
 
 sns.set_context('paper')
 
 
-# In[16]:
+# In[3]:
 
 import logging
 logger=logging.getLogger()
@@ -35,22 +35,24 @@ logging.basicConfig(filename='./log.log',level=logging.WARNING)
 
 # Check quota [here](https://console.developers.google.com/project/childmarriage-1019/apiui/apiview/youtube/quotas)
 
-# In[85]:
+# In[4]:
 
 taxonomyWords=['child marriage','child bride','underage bride','teen bride','forced marriage','early marriage']
 taxonomyWords.extend([u'बाल विवाह',u'बालिका वधु',u'नाबालिक विवाह',u'नाबालिक वधु',u'किशोर वधु',u'किशोर बीवी',u'जबरन शादी',u'जबरन विवाह'])
+taxonomyWords.extend([u'በህፃናት ላይ የሚፈፀም ጋብቻ',u'ህፃን ሙሽራ',u'ህፃን ሙሽሮች',u'ለአካለ መጠን ያልደረሰ',u'ያልደረሰች ሙሽራ',u'ለአካለ መጠን ያልደረሱ ሙሽሮች',u'በታዳጊነት እድሜ ላይ የምትገኝ',u'የሚገኝ ሙሽራ',u'በታዳጊነት እድሜ ላይ ሚገኙ ሙሽሮች',u'ተገዶ መዳር',u'ያለዕድሜ ጋብቻ',u'ሙሽሪቶች'])
+taxonomyWords.extend([u'girl brides',u'girl bride',u'बाल वधु',u'बाल वधुऐं',u'बाल वधुओं',u'बाल वधूं',u'बाल वधु',u'الفتاة الغلعروس'])
 taxonomyWords=map(lambda x:'"'+x+'"',taxonomyWords)
 #taxonomyWords=map(lambda x:'%22'+x+'%22',taxonomyWords)
 #FULLQUERY='|'.join(taxonomyWords)
 FULLQUERY='%7C'.join(taxonomyWords)
 
 
-# In[18]:
+# In[5]:
 
 FULLQUERY
 
 
-# In[19]:
+# In[6]:
 
 QUERY=re.escape('"child marriage"|"child bride"')
 from secrets import KEY
@@ -58,7 +60,7 @@ from secrets import KEY
 diff=1
 
 
-# In[20]:
+# In[7]:
 
 def getVideoParts(vData):
     title=res['items'][0]['snippet'].get('title')
@@ -79,34 +81,36 @@ def getVideoParts(vData):
     return time,title,tags,lang,description,commentCount,viewCount,favouriteCount,dislikeCount,likeCount
 
 
-# In[21]:
+# In[8]:
 
 def getCountryFromInfo(info):
-    if len(info['items'])>0:
-        return info['items'][0]['snippet'].get('country')
-    else:
-        return None
+    if info.get('items'):
+        if len(info['items'])>0:
+            return info['items'][0]['snippet'].get('country')
+    
+    return None
 
 
-# In[22]:
+# In[9]:
 
 def getDescriptionFromInfo(info):
-    if len(info['items'])>0:
-        return info['items'][0]['snippet'].get('description')
-    else:
-        return None
+    if info.get('items'):
+        if len(info['items'])>0:
+            return info['items'][0]['snippet'].get('description')
+    
+    return None
 
 
-# In[23]:
+# In[10]:
 
 def getTitleFromInfo(info):
-    if len(info['items'])>0:
-        return info['items'][0]['snippet'].get('title')
-    else:
-        return None
+    if info.get('items'):
+        if len(info['items'])>0:
+            return info['items'][0]['snippet'].get('title')
+    return None
 
 
-# In[24]:
+# In[ ]:
 
 def getVideoInfoFromVideo(vid):
 
@@ -119,14 +123,14 @@ def getVideoInfoFromVideo(vid):
         data=d.json()
         
         if not data.get('items') or not d.status_code==200:
-            logging.warning('Error getting video info %s' % vid)
+            logging.warning('Error getting video info %s (%d)' % (vid,d.status_code))
             logging.warning(data)
             return None
         
         return data
 
 
-# In[25]:
+# In[12]:
 
 def getChannelInfoFromChannel(cid):
     requestString='https://www.googleapis.com/youtube/v3/channels?part=snippet&id='+cid+'&key='+KEY
@@ -138,7 +142,7 @@ def getChannelInfoFromChannel(cid):
     return d.json()
 
 
-# In[68]:
+# In[13]:
 
 def getRepliesFromComment(commentId,commentTime,commentText,nextReplyPageToken):
     
@@ -157,6 +161,10 @@ def getRepliesFromComment(commentId,commentTime,commentText,nextReplyPageToken):
     newNextToken=returnData.get('nextPageToken')
     newPreviousToken=returnData.get('prevPageToken')
     logging.warning('Tokens Next: %s Previous: %s' % (newNextToken,newPreviousToken))
+
+    if not d.status_code==200:
+        logging.warning('Reply error %s',d.json())
+        return {'items':[]},False,None
     
     if newNextToken:
         if len(newNextToken)>0:
@@ -167,7 +175,7 @@ def getRepliesFromComment(commentId,commentTime,commentText,nextReplyPageToken):
 # commentData['items'],isMoreComments,nextToken
 
 
-# In[69]:
+# In[14]:
 
 def getVideos(end,start,nextToken):
     '''
@@ -210,7 +218,7 @@ def getVideos(end,start,nextToken):
     return data,isMore,newNextToken
 
 
-# In[70]:
+# In[15]:
 
 def getCommentsFromVideo(vid,nextCommentPageToken):
 #   data,isMoreComments,nextPageToken=getCommentsFromVideo(videoId,nextCommentPageToken)
@@ -266,12 +274,12 @@ def getCommentsFromVideo(vid,nextCommentPageToken):
     return commentData['items'],isMoreComments,nextToken
 
 
-# In[111]:
+# In[ ]:
 
-nDayDiff=365
+nDayDiff=450
 # Look back n days from start date
 
-diff=2
+diff=4
 # Start date is yesterday
 
 now=datetime.datetime.now()
@@ -343,8 +351,11 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
 
     isMoreVideos=True
     nextPageToken=None
+   
     
     while isMoreVideos:
+        time.sleep(5)
+        # Do a little sleep here so API not thrashed
         logging.warning('Getting more videos')
         data,isMoreVideos,nextPageToken=getVideos(end,start,nextPageToken)
 
@@ -378,7 +389,7 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                 # If video could be retrieved
                     channelId=res['items'][0]['snippet']['channelId']
 
-                    vTime,vTitle,vTags,vLang,vDescription,vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount=                    getVideoParts(res['items'][0])
+                    vTime,vTitle,vTags,vLang,vDescription,vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount=getVideoParts(res['items'][0])
 
                     logging.info('Video Title: %s' % vTitle)
                     vTitleList.append(vTitle)
@@ -406,6 +417,7 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     vLikeCountList.append(vLikeCount)
                     vDescriptionLangList.append(vDescriptionLang)
                     vTitleLangList.append(vTitleLang)
+                    logging.warning('Appending %s to langList' % vTitleLang)
                     
                     isMoreComments=True
                     nextCommentPageToken=None
@@ -478,33 +490,41 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     # Channel stuff
 
                     info=getChannelInfoFromChannel(channelId)
-                    cIdList.append(channelId)
+                    if info:
+                        cIdList.append(channelId)
 
-                    cCountry=getCountryFromInfo(info)
-                    logging.info('Channel Country: %s' % cCountry)
-                    cCountryList.append(cCountry)
+                        cCountry=getCountryFromInfo(info)
+                        logging.info('Channel Country: %s' % cCountry)
+                        cCountryList.append(cCountry)
 
-                    cDescription=getDescriptionFromInfo(info)
-                    if False:print 'Channel Description:',cDescription
-                    cDescriptionList.append(cDescription)
+                        cDescription=getDescriptionFromInfo(info)
+                        if False:print 'Channel Description:',cDescription
+                        cDescriptionList.append(cDescription)
 
-                    cTitle=getTitleFromInfo(info)
-                    logging.info('Channel Title %s' % cTitle)
-                    cTitleList.append(cTitle)
+                        cTitle=getTitleFromInfo(info)
+                        logging.info('Channel Title %s' % cTitle)
+                        cTitleList.append(cTitle)
+                    else:
+                        cIdList.append(None)
+                        cCountryList.append(None)
+                        cDescriptionList.append(None)
+                        cTitleList.append(None)
                 else:
+                    logging.warning('Subbing empty data')
                     vTitleList.append(None)
                     vTimeList.append(None)
                     vTagList.append(None)
                     vLangList.append(None)
-                    vDescriptionList.append(None)
                     vCommentCountList.append(None)
                     vViewCountList.append(None)
                     vFavouriteCountList.append(None)
                     vDislikeCountList.append(None)
                     vLikeCountList.append(None)
-                    
                     vTitleLangList.append(None)
+                    logging.warning('Appending NONE to langList')
+                    
                     vDescriptionList.append(None)
+                    vDescriptionLangList.append(None)
                     
                     cIdList.append(None)
                     cCountryList.append(None)
@@ -512,7 +532,7 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     cTitleList.append(None)
                 logging.info('\n')
 
-                assert len(vIdList)==len(vTitleList)==len(vTagList)==len(vLangList)==len(vDescriptionList)==len(vViewCountList)                ==len(vFavouriteCountList)==len(vDislikeCountList)==len(vLikeCountList)==len(vTimeList)==len(vTitleLangList)                ==len(cIdList)==len(cCountryList)==len(cDescriptionList)==len(cTitleList)==len(vTimeList)==len(vDescriptionLangList)                ,'Video data mismatched'
+                assert len(vIdList)==len(vTitleList)==len(vTagList)==len(vLangList)==len(vDescriptionList)==len(vViewCountList)                ==len(vFavouriteCountList)==len(vDislikeCountList)==len(vLikeCountList)==len(vTimeList)==len(vTitleLangList)                ==len(cIdList)==len(cCountryList)==len(cDescriptionList)==len(cTitleList)==len(vTimeList)==len(vDescriptionLangList)                ,'Video data mismatched '+' - '.join(['%d' % len(ll) for ll in [vIdList,vTitleList,vTagList,vDescriptionList,                vViewCountList,vFavouriteCountList,vDislikeCountList,vLikeCountList,vTimeList,vTitleLangList,cIdList,                cCountryList,cDescriptionList,cTitleList,vTimeList,vDescriptionLangList]])
 
                 assert len(commentIdList)==len(commentLikesList)==len(commentTextList)==len(commentTimeList)                ==len(commentUserIdList)==len(commentVideoIdList)                ,'Comment data mismatched'
 

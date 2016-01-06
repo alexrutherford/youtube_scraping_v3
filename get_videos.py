@@ -11,13 +11,19 @@ import datetime,time
 from dateutil.rrule import rrule, DAILY, HOURLY
 import pandas as pd
 import numpy as np
+import logging
 from utils import *
-import langid
+
 import sys,time
+sys.path.append('/usr/local/lib/python2.7/dist-packages')
+import langid
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 #sys.path.append('/usr/local/lib/python2.7/site-packages/')
+get_ipython().magic(u'matplotlib inline')
+get_ipython().magic(u"config InlineBackend.figure_format = 'svg'")
 
 
 # In[2]:
@@ -27,9 +33,11 @@ sns.set_context('paper')
 
 # In[3]:
 
-import logging
 logger=logging.getLogger()
-logging.basicConfig(filename='./log.log',level=logging.WARNING)
+hdlr = logging.FileHandler('log.log')
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+hdlr.setFormatter(formatter)
+logger.addHandler(hdlr)
 #logger.setLevel(logging.WARNING)
 
 
@@ -37,10 +45,7 @@ logging.basicConfig(filename='./log.log',level=logging.WARNING)
 
 # In[4]:
 
-taxonomyWords=['child marriage','child bride','underage bride','teen bride','forced marriage','early marriage']
-taxonomyWords.extend([u'बाल विवाह',u'बालिका वधु',u'नाबालिक विवाह',u'नाबालिक वधु',u'किशोर वधु',u'किशोर बीवी',u'जबरन शादी',u'जबरन विवाह'])
-taxonomyWords.extend([u'በህፃናት ላይ የሚፈፀም ጋብቻ',u'ህፃን ሙሽራ',u'ህፃን ሙሽሮች',u'ለአካለ መጠን ያልደረሰ',u'ያልደረሰች ሙሽራ',u'ለአካለ መጠን ያልደረሱ ሙሽሮች',u'በታዳጊነት እድሜ ላይ የምትገኝ',u'የሚገኝ ሙሽራ',u'በታዳጊነት እድሜ ላይ ሚገኙ ሙሽሮች',u'ተገዶ መዳር',u'ያለዕድሜ ጋብቻ',u'ሙሽሪቶች'])
-taxonomyWords.extend([u'girl brides',u'girl bride',u'बाल वधु',u'बाल वधुऐं',u'बाल वधुओं',u'बाल वधूं',u'बाल वधु',u'الفتاة الغلعروس'])
+taxonomyWords=['banda','bandas','pandilla','pandillas','cuadrillo','cuadrillos','brigada','brigadas']
 taxonomyWords=map(lambda x:'"'+x+'"',taxonomyWords)
 #taxonomyWords=map(lambda x:'%22'+x+'%22',taxonomyWords)
 #FULLQUERY='|'.join(taxonomyWords)
@@ -54,13 +59,13 @@ FULLQUERY
 
 # In[6]:
 
-QUERY=re.escape('"child marriage"|"child bride"')
+QUERY=re.escape('"bandas"&"salvador"')
 from secrets import KEY
 
 diff=1
 
 
-# In[7]:
+# In[31]:
 
 def getVideoParts(vData):
     title=res['items'][0]['snippet'].get('title')
@@ -88,29 +93,29 @@ def getCountryFromInfo(info):
         if len(info['items'])>0:
             return info['items'][0]['snippet'].get('country')
     
+    logging.warning('Country lookup error %s' % info)
     return None
 
 
 # In[9]:
 
 def getDescriptionFromInfo(info):
-    if info.get('items'):
-        if len(info['items'])>0:
-            return info['items'][0]['snippet'].get('description')
-    
-    return None
+    if len(info['items'])>0:
+        return info['items'][0]['snippet'].get('description')
+    else:
+        return None
 
 
 # In[10]:
 
 def getTitleFromInfo(info):
-    if info.get('items'):
-        if len(info['items'])>0:
-            return info['items'][0]['snippet'].get('title')
-    return None
+    if len(info['items'])>0:
+        return info['items'][0]['snippet'].get('title')
+    else:
+        return None
 
 
-# In[ ]:
+# In[11]:
 
 def getVideoInfoFromVideo(vid):
 
@@ -274,12 +279,12 @@ def getCommentsFromVideo(vid,nextCommentPageToken):
     return commentData['items'],isMoreComments,nextToken
 
 
-# In[ ]:
+# In[35]:
 
-nDayDiff=450
+nDayDiff=2
 # Look back n days from start date
 
-diff=4
+diff=2
 # Start date is yesterday
 
 now=datetime.datetime.now()
@@ -335,6 +340,7 @@ commentUserIdList=[]
 commentLikesList=[]
 commentTimeList=[]
 commentTextLangList=[]
+commentCountryList=[]
 # Initialise comment lists
 
 replyTextList=[]
@@ -344,6 +350,7 @@ replyAuthorIdList=[]
 replyLikeCountList=[]
 replyVideoIdList=[]
 replyLangList=[]
+replyCountryList=[]
 # Initialise reply lists
 
 ##############
@@ -351,11 +358,8 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
 
     isMoreVideos=True
     nextPageToken=None
-   
     
     while isMoreVideos:
-        time.sleep(5)
-        # Do a little sleep here so API not thrashed
         logging.warning('Getting more videos')
         data,isMoreVideos,nextPageToken=getVideos(end,start,nextPageToken)
 
@@ -389,7 +393,7 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                 # If video could be retrieved
                     channelId=res['items'][0]['snippet']['channelId']
 
-                    vTime,vTitle,vTags,vLang,vDescription,vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount=getVideoParts(res['items'][0])
+                    vTime,vTitle,vTags,vLang,vDescription,vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount=                    getVideoParts(res['items'][0])
 
                     logging.info('Video Title: %s' % vTitle)
                     vTitleList.append(vTitle)
@@ -409,7 +413,7 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     vTitleLang=langid.classify(vTitle)[0]
                     vDescriptionLang=langid.classify(vDescription)[0]
 
-                    logging.info('Video Stats %s' % ' '.join([k+':'+v for k,v in zip(['comments','views','favs','dislike','like'],[vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount]) if v]))
+                    logging.info('Video Stats %s' % ' '.join([k+':'+str(v) for k,v in                                 zip(['comments','views','favs','dislike','like']                                ,[vCommentCount,vViewCount,vFavouriteCount,vDislikeCount,vLikeCount]) if v]))
                     vCommentCountList.append(vCommentCount)
                     vViewCountList.append(vViewCount)
                     vFavouriteCountList.append(vFavouriteCount)
@@ -417,7 +421,6 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     vLikeCountList.append(vLikeCount)
                     vDescriptionLangList.append(vDescriptionLang)
                     vTitleLangList.append(vTitleLang)
-                    logging.warning('Appending %s to langList' % vTitleLang)
                     
                     isMoreComments=True
                     nextCommentPageToken=None
@@ -449,8 +452,16 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                             commentTimeList.append(commentTime)
 
                             try:commentUser=thread['snippet']['topLevelComment']['snippet']['authorChannelId']['value']
-                            except:commentuser=None
-
+                            except:commentUser=None
+                                
+                            if commentUser:
+                                commentInfo=getChannelInfoFromChannel(commentUser)
+                            if commentInfo:
+                                commentCountry=getCountryFromInfo(commentInfo)
+                            else:
+                                commentCountry=None
+                                commentCountryList.append(commentCountry)
+                                
                             commentUserIdList.append(commentUser)
 
                             commentLikes=thread['snippet']['topLevelComment']['snippet']['likeCount']
@@ -481,6 +492,15 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                                         except:
                                             logging.warning('Reply no author id %s' % reply['snippet'])
                                             replyAuthorId=None
+                                            
+                                        if replyAuthorId:
+                                            replyInfo=getChannelInfoFromChannel(replyAuthorId)
+                                            if replyInfo:
+                                                replyCountry=getCountryFromInfo(replyInfo)
+                                            else:
+                                                replyCountry=None
+                                            replyCountryList.append(replyCountry)
+                                            
                                         replyAuthorIdList.append(replyAuthorId)
 
                                         replyLikeCount=reply['snippet']['likeCount']
@@ -490,39 +510,34 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     # Channel stuff
 
                     info=getChannelInfoFromChannel(channelId)
-                    if info:
-                        cIdList.append(channelId)
+                    cIdList.append(channelId)
 
-                        cCountry=getCountryFromInfo(info)
-                        logging.info('Channel Country: %s' % cCountry)
-                        cCountryList.append(cCountry)
+                    cCountry=getCountryFromInfo(info)
+                    logging.info('Channel Country: %s' % cCountry)
+                    cCountryList.append(cCountry)
 
-                        cDescription=getDescriptionFromInfo(info)
-                        if False:print 'Channel Description:',cDescription
-                        cDescriptionList.append(cDescription)
+                    cDescription=getDescriptionFromInfo(info)
+                    if False:print 'Channel Description:',cDescription
+                    cDescriptionList.append(cDescription)
 
-                        cTitle=getTitleFromInfo(info)
-                        logging.info('Channel Title %s' % cTitle)
-                        cTitleList.append(cTitle)
-                    else:
-                        cIdList.append(None)
-                        cCountryList.append(None)
-                        cDescriptionList.append(None)
-                        cTitleList.append(None)
+                    cTitle=getTitleFromInfo(info)
+                    logging.info('Channel Title %s' % cTitle)
+                    cTitleList.append(cTitle)
                 else:
                     logging.warning('Subbing empty data')
                     vTitleList.append(None)
                     vTimeList.append(None)
                     vTagList.append(None)
                     vLangList.append(None)
+                    vDescriptionList.append(None)
                     vCommentCountList.append(None)
                     vViewCountList.append(None)
                     vFavouriteCountList.append(None)
                     vDislikeCountList.append(None)
                     vLikeCountList.append(None)
                     vTitleLangList.append(None)
-                    logging.warning('Appending NONE to langList')
                     
+                    vTitleLangList.append(None)
                     vDescriptionList.append(None)
                     vDescriptionLangList.append(None)
                     
@@ -532,7 +547,7 @@ for start,end in zip(startDates[0:-1],startDates[1:]):
                     cTitleList.append(None)
                 logging.info('\n')
 
-                assert len(vIdList)==len(vTitleList)==len(vTagList)==len(vLangList)==len(vDescriptionList)==len(vViewCountList)                ==len(vFavouriteCountList)==len(vDislikeCountList)==len(vLikeCountList)==len(vTimeList)==len(vTitleLangList)                ==len(cIdList)==len(cCountryList)==len(cDescriptionList)==len(cTitleList)==len(vTimeList)==len(vDescriptionLangList)                ,'Video data mismatched '+' - '.join(['%d' % len(ll) for ll in [vIdList,vTitleList,vTagList,vDescriptionList,                vViewCountList,vFavouriteCountList,vDislikeCountList,vLikeCountList,vTimeList,vTitleLangList,cIdList,                cCountryList,cDescriptionList,cTitleList,vTimeList,vDescriptionLangList]])
+                assert len(vIdList)==len(vTitleList)==len(vTagList)==len(vLangList)==len(vDescriptionList)==len(vViewCountList)                ==len(vFavouriteCountList)==len(vDislikeCountList)==len(vLikeCountList)==len(vTimeList)==len(vTitleLangList)                ==len(cIdList)==len(cCountryList)==len(cDescriptionList)==len(cTitleList)==len(vTimeList)==len(vDescriptionLangList)                ,'Video data mismatched '+' - '.join(['%d:%d' % len(ll) for n,ll in enumerate([vIdList,vTitleList,vTagList,vDescriptionList,                vViewCountList,vFavouriteCountList,vDislikeCountList,vLikeCountList,vTimeList,vTitleLangList,cIdList,                cCountryList,cDescriptionList,cTitleList,vTimeList,vDescriptionLangList])])
 
                 assert len(commentIdList)==len(commentLikesList)==len(commentTextList)==len(commentTimeList)                ==len(commentUserIdList)==len(commentVideoIdList)                ,'Comment data mismatched'
 
@@ -547,10 +562,10 @@ videoDf=pd.DataFrame(data={'id':vIdList,'title':vTitleList,'tags':vTagList,'lang
       
 commentDf=pd.DataFrame(data={'text':commentTextList,'videoId':commentVideoIdList,'id':commentIdList,                             'likes':commentLikesList,'user':commentUserIdList,'lang':commentTextLangList},index=commentTimeList)
 
-replyDf=pd.DataFrame(data={'text':replyTextList,'likes':replyLikeCountList,'author':replyAuthorIdList,'lang':replyLangList,                           'parentComment':replyCommentIdList,'parentVideo':replyVideoIdList},index=replyTimeList)
+replyDf=pd.DataFrame(data={'text':replyTextList,'likes':replyLikeCountList,'author':replyAuthorIdList,'lang':replyLangList,                           'parentComment':replyCommentIdList,'parentVideo':replyVideoIdList,'country':replyCountryList},index=replyTimeList)
 
 
-# In[115]:
+# In[ ]:
 
 replyDf.columns
 
@@ -560,28 +575,28 @@ replyDf.columns
 trash1,trash2,trash3=getVideos(end,start,None)
 
 
-# In[116]:
+# In[ ]:
 
 print replyDf.shape,videoDf.shape,commentDf.shape
 
 
 # ###Set indices to datetime
 
-# In[77]:
+# In[17]:
 
 videoDf.index=pd.to_datetime(videoDf.index)
 commentDf.index=pd.to_datetime(commentDf.index)
 replyDf.index=pd.to_datetime(replyDf.index)
 
 
-# In[79]:
+# In[18]:
 
 replyDf.parentVideo.value_counts()
 
 
 # ###Write Out
 
-# In[35]:
+# In[19]:
 
 videoDf.to_pickle('videos.dat')
 commentDf.to_pickle('comments.dat')
@@ -590,14 +605,100 @@ replyDf.to_pickle('replies.dat')
 
 # ###Read In
 
-# In[112]:
+# In[ ]:
 
 videoDf=pd.read_pickle('videos.dat')
 commentDf=pd.read_pickle('comments.dat')
 replyDf=pd.read_pickle('replies.dat')
 
 
-# In[95]:
+# In[ ]:
+
+info=getChannelInfoFromChannel('UCzGDueOgZn1agWXcl2BOrXA')
+print getCountryFromInfo(info)
+
+
+# In[ ]:
+
+replyDf.shape
+
+
+# In[ ]:
+
+len(pd.unique(replyDf.author))
+
+
+# In[ ]:
+
+len(pd.unique(commentDf['user']))
+
+
+# In[20]:
+
+def convertToInt(n):
+    if n:
+        return int(n)
+    else:
+        return n
+
+
+# In[21]:
+
+videoDf['views']=videoDf['views'].apply(convertToInt)
+
+
+# In[ ]:
+
+commentUserCountryHash=collections.OrderedDict()
+for n,r in enumerate(commentDf.iterrows()):
+    
+    if n%50==0:
+        time.sleep(2)
+    
+    if n%200==0:
+        print n,r[1]['user']
+        
+    info=getChannelInfoFromChannel(r[1]['user'])
+    if info:
+        c=getCountryFromInfo(info)
+        if c:
+            commentUserCountryHash[r[1]['user']]=c
+            print '\t',c
+
+
+# In[ ]:
+
+print commentUserCountryHash
+
+
+# In[ ]:
+
+import pickle
+
+with open('country_hash.dat','w') as outFile:
+    pickle.dump(commentUserCountryHash,outFile)
+print 'Done'
+
+
+# In[ ]:
+
+commentDf.head()
+
+
+# ###Read in taxonomy to classify content
+
+# In[ ]:
+
+taxonomy={}
+with open('../ipynb/taxonomy.csv','r') as taxonomyFile:
+    lines=taxonomyFile.read().decode('utf-8').split('\n')
+    for line in lines:
+        line=line.split(',')
+        line=map(unicode.lstrip,line)
+        taxonomy[line[0]]=u'|'.join(line[1:])
+
+
+# In[ ]:
 
 def matchesIndia(x,term=None):
     if x:
@@ -610,17 +711,17 @@ def matchesIndia(x,term=None):
     return False
 
 
-# In[96]:
+# In[ ]:
 
 sum(videoDf.tags.apply(matchesIndia).values)
 
 
-# In[97]:
+# In[ ]:
 
 collections.Counter(videoDf[~pd.isnull(videoDf.channelCountry)].channelCountry.values).most_common()[0:10]
 
 
-# In[98]:
+# In[ ]:
 
 vals=collections.Counter(videoDf[~pd.isnull(videoDf.channelCountry)].channelCountry.values).most_common()[0:10]
 # Throw out null
@@ -644,24 +745,19 @@ plt.tight_layout()
 plt.savefig('../charts/youtube_country_dist.png',dpi=300)
 
 
-# In[186]:
+# In[ ]:
 
-videoDf[videoDf.channelCountry=='VN'].icol([3,4,10,11])
-
-
-# In[113]:
-
-#chosenCountry='ET'
-chosenCountry=None
+chosenCountry='IN'
+#chosenCountry=None
 
 if chosenCountry:
-    videoDf[videoDf.channelCountry==chosenCountry]['id'].resample('d',how='count').plot()
+    videoDf[videoDf.channelCountry==chosenCountry]['id'].resample('w',how='count').plot()
 else:
-    videoDf['id'].resample('d',how='count').plot()
+    videoDf['id'].resample('w',how='count').plot()
 if chosenCountry:
-    plt.ylabel('Videos Published per Day (%s)' % chosenCountry)
+    plt.ylabel('Videos Published per Week (%s)' % chosenCountry)
 else:
-    plt.ylabel('Videos Published per Day')
+    plt.ylabel('Videos Published per Week')
 plt.tight_layout()
 
 if chosenCountry:
@@ -670,32 +766,32 @@ else:
     plt.savefig('../charts/youtube_time.png',dpi=300)
 
 
-# In[100]:
+# In[ ]:
 
-commentDf[commentDf.index>pd.datetime(2015,1,1)]['id'].resample('d',how='count').plot()
-plt.ylabel('Comments per Day')
+commentDf[commentDf.index>pd.datetime(2015,1,1)]['id'].resample('w',how='count').plot()
+plt.ylabel('Comments per Week')
 plt.tight_layout()
 plt.savefig('../charts/youtube_comments_time.png',dpi=300)
 
 
-# In[139]:
+# In[ ]:
 
 commentDf.videoId.value_counts()[0:10]
 
 
-# In[205]:
+# In[ ]:
 
 oldIds=videoDf.id.values
 
 
-# In[211]:
+# In[ ]:
 
 for r in random.sample(videoDf[~(videoDf.channelCountry=='IN')].id.values,10):
     print r,videoDf[videoDf.id==r].title.values[0]#,videoDf[videoDf.id==r].title.values[0],videoDf[videoDf.id==r].description.values[0]
     print '=================='
 
 
-# In[202]:
+# In[ ]:
 
 FULLQUERY
 
